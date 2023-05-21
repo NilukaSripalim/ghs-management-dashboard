@@ -39,10 +39,10 @@ type createUserRequest record {
     string name;
 };
 
-string studentGroupId="";
-string commerceGroupId="";
-string artsGroupId="";
-string scienceGroupId="";
+string studentGroupId="8da72e16-f48d-4ec4-adab-66c2ec6940b4";
+string commerceGroupId="6a0332be-16f3-48c8-95df-aff5681fa02e";
+string artsGroupId="81af19d1-ac9e-443e-9e62-603c25501a06";
+string scienceGroupId="6569a789-d829-4075-9fae-1dfe13d78189";
 
 # Description
 #
