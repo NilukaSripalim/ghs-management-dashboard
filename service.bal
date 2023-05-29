@@ -224,7 +224,6 @@ service / on new http:Listener(9090) {
         return {
             firstName: searchResponse.name?.givenName,
             lastName: searchResponse.name?.familyName,
-            displayName: searchResponse.displayName,
             userName: searchResponse.userName
         };
     }
