@@ -85,15 +85,14 @@ function findUserByEmail(string email) returns error|scim:UserResource {
 
     scim:UserSearch searchData = {filter: string `userName eq ${properUserName}`};
     scim:UserResponse|scim:ErrorResponse|error searchResponse = check scimClient->searchUser(searchData);
-
     
     if searchResponse is scim:UserResponse {
+        scim:UserResource[] userResources = searchResponse.Resources ?: [];
 
-        return (<scim:UserResource[]>searchResponse.Resources)[0];
+        return userResources[0];
     } 
     
     return error("error occurred while searching the user");
-
 }
 
 # A service representing a network-accessible API
@@ -106,7 +105,11 @@ service / on new http:Listener(9090) {
     # + return - Json searchResponse with the count of members in each group.
     resource function get groupMemberCount() returns json|error {
 
-
+        int studentCount = 0;
+        int commerceCount = 0;
+        int artCount = 0;
+        int scienceCount = 0;
+        
         //Get the group resources of each required group using the getGroup method. 
         scim:GroupResource studentGroup = check scimClient->getGroup(studentGroupId);
         scim:GroupResource commerceGroup = check scimClient->getGroup(commerceGroupId);
@@ -114,10 +117,18 @@ service / on new http:Listener(9090) {
         scim:GroupResource scienceGroup = check scimClient->getGroup(scienceGroupId);
 
         //find the member count in each group.
-        int studentCount = (<scim:Member[]> studentGroup.members).length();
-        int commerceCount = (<scim:Member[]> commerceGroup.members).length();
-        int artCount = (<scim:Member[]> artGroup.members).length();
-        int scienceCount = (<scim:Member[]> scienceGroup.members).length();
+        if studentGroup.members != () {
+            studentCount = (<scim:Member[]> studentGroup.members).length();
+        }
+        if commerceGroup.members != () {
+            commerceCount = (<scim:Member[]> commerceGroup.members).length();
+        }
+        if artGroup.members != () {
+            artCount = (<scim:Member[]> artGroup.members).length();
+        }
+        if scienceGroup.members != () {
+            scienceCount = (<scim:Member[]> scienceGroup.members).length();
+        }
         
         //Create searchResponse
         json searchResponse=  {
