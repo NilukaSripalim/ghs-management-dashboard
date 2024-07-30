@@ -1,5 +1,5 @@
 import ballerina/http;
-
+import ballerinax/scim;
 
 
 service /userManagement on new http:Listener(8080) {
