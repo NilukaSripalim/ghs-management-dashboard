@@ -227,9 +227,4 @@ service / on new http:Listener(9090) {
             userName: searchResponse.userName
         };
     }
-
-
-
-
 }
-
