@@ -152,10 +152,15 @@ service / on new http:Listener(9090) {
         }
 
         scim:UserCreate user = {
-            password: payload.password,
-            userName: string `DEFAULT/${payload.email}`
+                emailAddress: payload.email,
+                name: {
+                    familyName: payload.name,
+                    givenName: payload.name
+                },
+                password: payload.password,
+                userName: string `DEFAULT/${payload.email}`
         };
-        
+
         scim:UserResource|scim:ErrorResponse|error createdUser = check scimClient->createUser(user);
 
         if createdUser is error {
