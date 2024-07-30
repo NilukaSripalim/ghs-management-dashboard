@@ -32,8 +32,9 @@ scim:Client scimClient = new(scimConfig);
 service /userManagement on new http:Listener(8080) {
 
     resource function get groupMemberCount(http:Request request) returns json|error {
+        // Check for valid scope in request headers
         if !hasValidScope(request, "internal_group_mgt_view") {
-            return http:FORBIDDEN;
+            return error("Unauthorized: Insufficient scope");
         }
 
         int studentCount = 0;
@@ -41,17 +42,13 @@ service /userManagement on new http:Listener(8080) {
         int artCount = 0;
         int scienceCount = 0;
 
-        // Replace with actual group IDs
-        string studentGroupId = "studentGroupId";
-        string commerceGroupId = "commerceGroupId";
-        string artsGroupId = "artsGroupId";
-        string scienceGroupId = "scienceGroupId";
+        // Get the group resources of each required group using the getGroup method. 
+        scim:GroupResource studentGroup = check scimClient->getGroup("studentGroupId");
+        scim:GroupResource commerceGroup = check scimClient->getGroup("commerceGroupId");
+        scim:GroupResource artGroup = check scimClient->getGroup("artsGroupId");
+        scim:GroupResource scienceGroup = check scimClient->getGroup("scienceGroupId");
 
-        scim:GroupResource studentGroup = check scimClient->getGroup(studentGroupId);
-        scim:GroupResource commerceGroup = check scimClient->getGroup(commerceGroupId);
-        scim:GroupResource artGroup = check scimClient->getGroup(artsGroupId);
-        scim:GroupResource scienceGroup = check scimClient->getGroup(scienceGroupId);
-
+        // Find the member count in each group.
         if studentGroup.members != () {
             studentCount = (<scim:Member[]> studentGroup.members).length();
         }
@@ -65,6 +62,7 @@ service /userManagement on new http:Listener(8080) {
             scienceCount = (<scim:Member[]> scienceGroup.members).length();
         }
 
+        // Create searchResponse
         json searchResponse = {
             totalStudentCount: studentCount,
             teacherCount: {
@@ -78,18 +76,18 @@ service /userManagement on new http:Listener(8080) {
     }
 
     resource function post createUserAccount(http:Request request) returns http:Created|error|http:BadRequest {
+        // Check for valid scope in request headers
         if !hasValidScope(request, "internal_user_mgt_create") {
             return http:FORBIDDEN;
         }
 
         json payload = check request.getJsonPayload();
-        string emailAddress = payload.emailAddress.toString();
+        string email = payload.email.toString();
         string password = payload.password.toString();
         string givenName = payload.name?.givenName.toString();
         string familyName = payload.name?.familyName.toString();
-        string userName = payload.userName.toString();
 
-        string|error userGroupId = findUserGroup(emailAddress);
+        string|error userGroupId = findUserGroup(email);
 
         if userGroupId is error {
             return http:BAD_REQUEST;
@@ -97,18 +95,18 @@ service /userManagement on new http:Listener(8080) {
 
         scim:UserCreate user = {
             password: password,
-            userName: userName,
+            userName: string `DEFAULT/${email}`,
             name: {
                 givenName: givenName,
                 familyName: familyName
             },
-            emails: [{value: emailAddress}]
+            email: email
         };
 
         scim:UserResource|scim:ErrorResponse|error createdUser = check scimClient->createUser(user);
 
         if createdUser is error || !(createdUser.id is string) {
-            return http:INTERNAL_SERVER_ERROR;
+            return error("Error occurred while creating user");
         }
 
         string createdUserId = <string>createdUser.id;
@@ -125,54 +123,56 @@ service /userManagement on new http:Listener(8080) {
             error? userDeleteError = deleteUser(createdUserId);
 
             if userDeleteError is error {
-                return http:INTERNAL_SERVER_ERROR;
+                return error("Error occurred while adding user to group. User could not be deleted");
             }
 
-            return http:INTERNAL_SERVER_ERROR;
+            return error("Error occurred while creating user");
         }
 
         return http:CREATED;
     }
 
     resource function delete deleteUser(http:Request request) returns http:STATUS_NO_CONTENT|error {
+        // Check for valid scope in request headers
         if !hasValidScope(request, "internal_user_mgt_delete") {
             return http:FORBIDDEN;
         }
 
         json payload = check request.getJsonPayload();
-        string emailAddress = payload.emailAddress.toString();
-        error|scim:UserResource searchResponse = findUserByEmail(emailAddress);
+        string email = payload.email.toString();
+        error|scim:UserResource searchResponse = findUserByEmail(email);
 
         if searchResponse is error {
-            return http:NOT_FOUND;
+            return error("Error occurred while searching the user");
         }
 
         string userId = <string>searchResponse.id;
 
         if userId == "" {
-            return http:NOT_FOUND;
+            return error("Error occurred while searching the user");
         }
 
         scim:ErrorResponse|error? deleteResponse = check scimClient->deleteUser(userId);
 
         if deleteResponse is error {
-            return http:INTERNAL_SERVER_ERROR;
+            return error("Error occurred while deleting the user");
         }
 
         return http:STATUS_NO_CONTENT;
     }
 
     resource function get searchUserProfile(http:Request request) returns json|error {
+        // Check for valid scope in request headers
         if !hasValidScope(request, "internal_user_mgt_view") {
             return http:FORBIDDEN;
         }
 
         json payload = check request.getJsonPayload();
-        string emailAddress = payload.emailAddress.toString();
-        error|scim:UserResource searchResponse = findUserByEmail(emailAddress);
+        string email = payload.email.toString();
+        error|scim:UserResource searchResponse = findUserByEmail(email);
 
         if searchResponse is error {
-            return http:NOT_FOUND;
+            return error("Error in searching user profile");
         }
 
         return {
@@ -181,36 +181,4 @@ service /userManagement on new http:Listener(8080) {
             userName: searchResponse.userName
         };
     }
-}
-
-// Utility functions
-
-function hasValidScope(http:Request request, string requiredScope) returns boolean {
-    string[]|error scopes = request.getHeader("x-scopes");
-    if scopes is string[] {
-        foreach string scope in scopes {
-            if (scope == requiredScope) {
-                return true;
-            }
-        }
-    }
-    return false;
-}
-
-function findUserGroup(string emailAddress) returns string|error {
-    // Implement logic to find the user group by email address
-    // This is a placeholder implementation
-    return "exampleGroupId";
-}
-
-function findUserByEmail(string emailAddress) returns scim:UserResource|error {
-    // Implement logic to find user by email address
-    // This is a placeholder implementation
-    return error("User not found");
-}
-
-function deleteUser(string userId) returns error? {
-    // Implement logic to delete user by userId
-    // This is a placeholder implementation
-    return;
 }
