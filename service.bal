@@ -152,10 +152,10 @@ service / on new http:Listener(9090) {
         }
 
         scim:UserCreate user = {
-                emailAddress: payload.email,
+                emailAddress: string payload.email,
                 name: {
-                    familyName: payload.name,
-                    givenName: payload.name
+                    familyName: string payload.name,
+                    givenName: string payload.name
                 },
                 password: payload.password,
                 userName: string `DEFAULT/${payload.email}`
